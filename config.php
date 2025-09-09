@@ -1,9 +1,9 @@
 <?php
 return [
-    // PostgreSQL Database Credentials (from Railway "Connect" tab)
-    'DB_HOST' => 'containers-us-west-123.railway.app',  // PGHOST
-    'DB_PORT' => '5432',                               // PGPORT 
-    'DB_NAME' => 'railway',                            // PGDATABASE
-    'DB_USER' => 'postgres',                           // PGUSER
-    'DB_PASS' => 'zSXozaYXSwFVKyvUyebkGXUqezeqfqMf',  // PGPASSWORD
+    // Render PostgreSQL Database Credentials
+    'DB_HOST' => 'dpg-d300uhqli9vc738gsp3g-a',   
+    'DB_PORT' => '5432',               
+    'DB_NAME' => 'lightsmarttopup',      
+    'DB_USER' => 'lightsmarttopup_user',       
+    'DB_PASS' => 'Yb68Pt3nySr1IRpuX7BOcEjmWrrmbNcJ',   
 ];
