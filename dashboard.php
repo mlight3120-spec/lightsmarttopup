@@ -1,54 +1,176 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
+    header("Location: index.php");
     exit;
 }
 
-$config = include __DIR__ . '/config.php';
-$dsn = "mysql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']}";
-$pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS']);
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$config = include(__DIR__ . '/config.php');
 
-// Get current user
-$user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT email, wallet_balance FROM users WHERE id = ?");
-$stmt->execute([$user_id]);
+try {
+    $dsn = "pgsql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']};";
+    $pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS'], [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+    ]);
+} catch (PDOException $e) {
+    die("❌ Database connection failed: " . $e->getMessage());
+}
+
+// Fetch user info
+$stmt = $pdo->prepare("SELECT balance, name FROM users WHERE id = :id");
+$stmt->execute([':id' => $_SESSION['user_id']]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
+$balance = $user['balance'];
 
-$balance = $user['wallet_balance'];
-$email = $user['email'];
+// Handle wallet funding
+if (isset($_POST['fund_wallet'])) {
+    $amount = floatval($_POST['amount']);
+    if ($amount > 0) {
+        $pdo->prepare("UPDATE users SET balance = balance + :amt WHERE id = :id")
+            ->execute([':amt' => $amount, ':id' => $_SESSION['user_id']]);
+
+        $pdo->prepare("INSERT INTO transactions (user_id, type, amount, status) VALUES (:uid, 'wallet_fund', :amt, 'successful')")
+            ->execute([':uid' => $_SESSION['user_id'], ':amt' => $amount]);
+
+        $pdo->prepare("INSERT INTO commissions (user_id, funding_amount, commission) VALUES (:uid, :amt, 50)")
+            ->execute([':uid' => $_SESSION['user_id'], ':amt' => $amount]);
+
+        header("Location: dashboard.php");
+        exit;
+    }
+}
+
+// Handle Airtime Purchase
+if (isset($_POST['buy_airtime'])) {
+    $network = $_POST['network'];
+    $phone = $_POST['phone'];
+    $amount = floatval($_POST['amount']);
+
+    if ($amount > 0 && $balance >= $amount) {
+        $pdo->prepare("UPDATE users SET balance = balance - :amt WHERE id = :id")
+            ->execute([':amt' => $amount, ':id' => $_SESSION['user_id']]);
+
+        $pdo->prepare("INSERT INTO transactions (user_id, type, amount, status) VALUES (:uid, 'airtime - $network', :amt, 'successful')")
+            ->execute([':uid' => $_SESSION['user_id'], ':amt' => $amount]);
+
+        header("Location: dashboard.php");
+        exit;
+    }
+}
+
+// Handle Data Purchase
+if (isset($_POST['buy_data'])) {
+    $network = $_POST['network'];
+    $phone = $_POST['phone'];
+    $plan = $_POST['plan'];
+    $price = ($plan == "1GB") ? 300 : (($plan == "2GB") ? 500 : 1000);
+
+    if ($balance >= $price) {
+        $pdo->prepare("UPDATE users SET balance = balance - :amt WHERE id = :id")
+            ->execute([':amt' => $price, ':id' => $_SESSION['user_id']]);
+
+        $pdo->prepare("INSERT INTO transactions (user_id, type, amount, status) VALUES (:uid, 'data - $network - $plan', :amt, 'successful')")
+            ->execute([':uid' => $_SESSION['user_id'], ':amt' => $price]);
+
+        header("Location: dashboard.php");
+        exit;
+    }
+}
+
+// Fetch transactions
+$stmt = $pdo->prepare("SELECT * FROM transactions WHERE user_id = :id ORDER BY created_at DESC");
+$stmt->execute([':id' => $_SESSION['user_id']]);
+$transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Dashboard - LightsmartTopup</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <title>Dashboard - Lightsmart Topup</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f9; padding: 20px; }
+        .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; }
+        form { margin-top: 10px; }
+        input, select { padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin: 5px 0; width: 100%; }
+        button { padding: 10px; background: #4CAF50; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+        button:hover { background: #45a049; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table th, table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        table th { background: #f2f2f2; }
+        .logout { float: right; }
+    </style>
 </head>
-<body class="bg-light">
-<div class="container mt-5">
-    <div class="card shadow p-4">
-        <h2 class="text-center text-primary">⚡ LightsmartTopup Dashboard</h2>
-        <h4 class="text-center">Welcome, <?php echo htmlspecialchars($email); ?></h4>
-        <h5 class="text-center">💰 Wallet Balance: ₦<?php echo number_format($balance, 2); ?></h5>
+<body>
 
-        <div class="row text-center mt-4">
-            <div class="col-md-4 mb-3">
-                <a href="buy_airtime.php" class="btn btn-primary w-100">📱 Buy Airtime</a>
-            </div>
-            <div class="col-md-4 mb-3">
-                <a href="buy_data.php" class="btn btn-success w-100">🌐 Buy Data</a>
-            </div>
-            <div class="col-md-4 mb-3">
-                <a href="fund_wallet.php" class="btn btn-warning w-100">💵 Fund Wallet</a>
-            </div>
-        </div>
-
-        <div class="text-center mt-4">
-            <a href="transactions.php" class="btn btn-info">📜 View Transactions</a>
-            <a href="logout.php" class="btn btn-danger">🚪 Logout</a>
-        </div>
-    </div>
+<div class="card">
+    <h2>Welcome, <?= htmlspecialchars($user['name']) ?> 👋</h2>
+    <p><strong>Wallet Balance:</strong> ₦<?= number_format($balance, 2) ?></p>
+    <form method="post">
+        <input type="number" name="amount" placeholder="Enter amount" required>
+        <button type="submit" name="fund_wallet">Fund Wallet</button>
+    </form>
+    <p><a href="logout.php" class="logout">Logout</a></p>
 </div>
+
+<div class="card">
+    <h2>Buy Airtime</h2>
+    <form method="post">
+        <select name="network" required>
+            <option value="">Select Network</option>
+            <option value="MTN">MTN</option>
+            <option value="GLO">GLO</option>
+            <option value="AIRTEL">AIRTEL</option>
+            <option value="9MOBILE">9MOBILE</option>
+        </select>
+        <input type="text" name="phone" placeholder="Phone Number" required>
+        <input type="number" name="amount" placeholder="Amount" required>
+        <button type="submit" name="buy_airtime">Purchase Airtime</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Buy Data</h2>
+    <form method="post">
+        <select name="network" required>
+            <option value="">Select Network</option>
+            <option value="MTN">MTN</option>
+            <option value="GLO">GLO</option>
+            <option value="AIRTEL">AIRTEL</option>
+            <option value="9MOBILE">9MOBILE</option>
+        </select>
+        <input type="text" name="phone" placeholder="Phone Number" required>
+        <select name="plan" required>
+            <option value="">Select Data Plan</option>
+            <option value="1GB">1GB - ₦300</option>
+            <option value="2GB">2GB - ₦500</option>
+            <option value="5GB">5GB - ₦1000</option>
+        </select>
+        <button type="submit" name="buy_data">Purchase Data</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Your Transactions</h2>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Date</th>
+        </tr>
+        <?php foreach ($transactions as $tx): ?>
+            <tr>
+                <td><?= $tx['id'] ?></td>
+                <td><?= htmlspecialchars($tx['type']) ?></td>
+                <td>₦<?= number_format($tx['amount'], 2) ?></td>
+                <td><?= htmlspecialchars($tx['status']) ?></td>
+                <td><?= $tx['created_at'] ?></td>
+            </tr>
+        <?php endforeach; ?>
+    </table>
+</div>
+
 </body>
 </html>
