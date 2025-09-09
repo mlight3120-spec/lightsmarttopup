@@ -1,45 +1,56 @@
 <?php
-$config = include __DIR__ . '/config.php';
+// Load DB config
+$config = include(__DIR__ . '/config.php');
 
-$dsn = "mysql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']}";
 try {
-    $pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS']);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Connect to PostgreSQL
+    $dsn = "pgsql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']};";
+    $pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS'], [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+    ]);
 
-    // Users table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(100) UNIQUE,
-        password VARCHAR(255),
-        wallet_balance DECIMAL(10,2) DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )");
+    echo "✅ Connected to Render PostgreSQL successfully.<br>";
 
-    // Transactions table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS transactions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
-        type VARCHAR(50),
-        amount DECIMAL(10,2),
-        status VARCHAR(50),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )");
+    // Create tables (adjust as needed)
+    $queries = [
 
-    // Commission table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS commission (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        amount DECIMAL(10,2),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )");
+        // Users table
+        "CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            email VARCHAR(100) UNIQUE NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            balance NUMERIC(12,2) DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );",
 
-    // Insert admin user
-    $adminEmail = 'admin@lightsmarttopup.com';
-    $adminPass = password_hash('admin123', PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare("INSERT IGNORE INTO users (email, password, wallet_balance) VALUES (?, ?, 0)");
-    $stmt->execute([$adminEmail, $adminPass]);
+        // Transactions table
+        "CREATE TABLE IF NOT EXISTS transactions (
+            id SERIAL PRIMARY KEY,
+            user_id INT REFERENCES users(id) ON DELETE CASCADE,
+            type VARCHAR(50) NOT NULL, -- airtime, data, wallet_fund
+            amount NUMERIC(12,2) NOT NULL,
+            status VARCHAR(50) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );",
 
-    echo '✅ Installation complete. Admin login: ' . $adminEmail . ' / admin123';
-} catch (Exception $e) {
-    echo '❌ Error: ' . $e->getMessage();
+        // Wallet funding commissions
+        "CREATE TABLE IF NOT EXISTS commissions (
+            id SERIAL PRIMARY KEY,
+            user_id INT REFERENCES users(id) ON DELETE CASCADE,
+            funding_amount NUMERIC(12,2) NOT NULL,
+            commission NUMERIC(12,2) DEFAULT 50,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );"
+    ];
+
+    foreach ($queries as $sql) {
+        $pdo->exec($sql);
+    }
+
+    echo "✅ All tables created successfully in PostgreSQL.<br>";
+    echo "👉 Now you can delete install.php for security.";
+
+} catch (PDOException $e) {
+    echo "❌ Setup failed: " . $e->getMessage();
 }
-?>
