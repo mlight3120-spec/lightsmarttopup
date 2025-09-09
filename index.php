@@ -9,6 +9,9 @@ $config = include __DIR__ . '/config.php';
 <body>
     <h1>Welcome to LightsmartTopup</h1>
     <p>Your reliable platform for Airtime & Data Topup.</p>
-    <a href="install.php">Run Installer</a>
+    if ($db_not_connected) {
+    die("❌ Database connection failed. Please contact admin.");
+}
+
 </body>
 </html>
