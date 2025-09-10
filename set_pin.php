@@ -2,7 +2,7 @@
 session_start();
 require __DIR__ . '/config.php';
 
-// check if user is logged in
+// User must be logged in
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
@@ -14,13 +14,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $pin = trim($_POST['pin']);
     $user_id = $_SESSION['user_id'];
 
-    if (preg_match('/^[0-9]{4}$/', $pin)) { // only 4-digit PIN allowed
+    // Only allow 4-digit numbers
+    if (preg_match('/^[0-9]{4}$/', $pin)) {
         try {
+            // Rebuild connection (Postgres)
             $dsn = "pgsql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']};";
             $pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS'], [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
             ]);
 
+            // Store hashed PIN
             $stmt = $pdo->prepare("UPDATE users SET pin = :pin WHERE id = :id");
             $stmt->execute([
                 ':pin' => password_hash($pin, PASSWORD_DEFAULT),
