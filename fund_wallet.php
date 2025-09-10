@@ -1,9 +1,10 @@
 <?php
 $config = include __DIR__ . '/config.php';
 
-$dsn = "mysql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']}";
-$pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS']);
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$dsn = "pgsql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']};";
+$pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS'], [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+]);
 
 // Example: funding request from user (in production, you integrate Paystack callback here)
 $user_id = $_POST['user_id'] ?? 1;   // default demo user
