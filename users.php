@@ -2,9 +2,11 @@
 session_start();
 $config = include __DIR__ . '/config.php';
 
-$dsn = "mysql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']}";
-$pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS']);
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$dsn = "pgsql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']};";
+$pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS'], [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+]);
+
 
 // ✅ Protect for admin only
 $admin_email = "admin@lightsmarttopup.com";
