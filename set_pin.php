@@ -1,6 +1,16 @@
 <?php
 session_start();
-require __DIR__ . '/config.php';
+require __DIR__ . '/config.php'; // this only defines $host, $port, $dbname, $user, $pass
+
+// Create connection here
+try {
+    $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;";
+    $pdo = new PDO($dsn, $user, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+    ]);
+} catch (PDOException $e) {
+    die("❌ Database connection failed: " . $e->getMessage());
+}
 
 // User must be logged in
 if (!isset($_SESSION['user_id'])) {
@@ -16,12 +26,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if (preg_match('/^[0-9]{4}$/', $pin)) {
         try {
-            // Build connection fresh with $config values
-            $dsn = "pgsql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']};";
-            $pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS'], [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-            ]);
-
             $stmt = $pdo->prepare("UPDATE users SET pin = :pin WHERE id = :id");
             $stmt->execute([
                 ':pin' => password_hash($pin, PASSWORD_DEFAULT),
