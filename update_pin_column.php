@@ -6,7 +6,8 @@ require 'config.php';
     $pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
     ]);
-    }
+    }catch (PDOException $e) {
+    die("❌ Database connection failed: " . $e->getMessage());
 
     $sql = "ALTER TABLE users ADD COLUMN pin TEXT NULL";
     $conn->exec($sql);
