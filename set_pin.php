@@ -17,13 +17,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Only allow 4-digit numbers
     if (preg_match('/^[0-9]{4}$/', $pin)) {
         try {
-            // Rebuild connection (Postgres)
-            $dsn = "pgsql:host={$config['DB_HOST']};port={$config['DB_PORT']};dbname={$config['DB_NAME']};";
-            $pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS'], [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-            ]);
-
-            // Store hashed PIN
+            // Use existing $pdo from config.php
             $stmt = $pdo->prepare("UPDATE users SET pin = :pin WHERE id = :id");
             $stmt->execute([
                 ':pin' => password_hash($pin, PASSWORD_DEFAULT),
