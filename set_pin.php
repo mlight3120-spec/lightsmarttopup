@@ -1,5 +1,22 @@
 <?php
 session_start();
+
+<?php
+session_start();
+
+// include your config file
+require_once __DIR__ . "/config.php";
+
+try {
+    // use the variables from config.php
+    $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;";
+    $pdo = new PDO($dsn, $user, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+    ]);
+} catch (PDOException $e) {
+    die("❌ Database connection failed: " . $e->getMessage());
+}
+
 require __DIR__ . '/config.php'; // this only defines $host, $port, $dbname, $user, $pass
 
 // Create connection here
