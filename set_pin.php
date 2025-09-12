@@ -1,14 +1,11 @@
 <?php
 session_start();
 
-<?php
-session_start();
-
-// include your config file
+// load database config
 require_once __DIR__ . "/config.php";
 
 try {
-    // use the variables from config.php
+    // connect to PostgreSQL using config.php variables
     $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;";
     $pdo = new PDO($dsn, $user, $pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
@@ -17,61 +14,33 @@ try {
     die("❌ Database connection failed: " . $e->getMessage());
 }
 
-require __DIR__ . '/config.php'; // this only defines $host, $port, $dbname, $user, $pass
-
-// Create connection here
-try {
-    $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;";
-    $pdo = new PDO($dsn, $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-    ]);
-} catch (PDOException $e) {
-    die("❌ Database connection failed: " . $e->getMessage());
-}
-
-// User must be logged in
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit;
-}
-
-$message = "";
-
+// handle form submit
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $pin = trim($_POST['pin']);
-    $user_id = $_SESSION['user_id'];
+    $pin = $_POST['pin'] ?? '';
 
-    if (preg_match('/^[0-9]{4}$/', $pin)) {
-        try {
+    if (preg_match('/^\d{4}$/', $pin)) {
+        $user_id = $_SESSION['user_id'] ?? null;
+
+        if ($user_id) {
             $stmt = $pdo->prepare("UPDATE users SET pin = :pin WHERE id = :id");
             $stmt->execute([
-                ':pin' => password_hash($pin, PASSWORD_DEFAULT),
+                ':pin' => password_hash($pin, PASSWORD_BCRYPT),
                 ':id'  => $user_id
             ]);
-
-            $message = "✅ PIN set successfully!";
-        } catch (PDOException $e) {
-            $message = "❌ Error: " . $e->getMessage();
+            echo "✅ Transaction PIN set successfully!";
+        } else {
+            echo "❌ User not logged in.";
         }
     } else {
-        $message = "❌ PIN must be exactly 4 digits.";
+        echo "❌ Invalid PIN. Enter exactly 4 digits.";
     }
 }
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Set Transaction PIN</title>
-</head>
-<body>
-    <h2>Set Transaction PIN</h2>
-    <?php if ($message): ?>
-        <p><?php echo $message; ?></p>
-    <?php endif; ?>
-    <form method="post">
-        <label>Enter 4-Digit PIN:</label>
-        <input type="password" name="pin" maxlength="4" required>
-        <button type="submit">Save PIN</button>
-    </form>
-</body>
-</html>
+
+<!-- PIN setup form -->
+<h2>Set Transaction PIN</h2>
+<form method="post">
+    <label>Enter 4-Digit PIN:</label>
+    <input type="password" name="pin" maxlength="4" required>
+    <button type="submit">Save PIN</button>
+</form>
